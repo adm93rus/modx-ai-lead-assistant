@@ -46,7 +46,13 @@ php core/components/aiassistant/install.php --force-settings
 
 ### Транспортный пакет
 
-На машине, где уже стоит MODX:
+Готовый пакет для «Управление пакетами → Загрузить пакет»:
+
+`_packages/aiassistant-1.0.0-pl.transport.zip`
+
+Он собран на MODX 2.8.8 и ставится на MODX 2.8+ и MODX 3. Внутри сниппеты `aiAssistant` и `aiAssistantFeed`, чанк `aiassistant.rules`, плагин на `OnWebPagePrerender`, пространство имён и системные настройки. Повторная установка не перезаписывает уже изменённые настройки.
+
+Собрать заново на своей установке MODX:
 
 ```bash
 cd _build
@@ -55,7 +61,7 @@ cp build.config.sample.php build.config.php
 php build.transport.php
 ```
 
-Пакет появится в `core/packages` этого MODX. Его ставят через «Управление пакетами». Повторная установка не перезаписывает уже изменённые системные настройки.
+Пакет появится в `core/packages` этого MODX.
 
 ## Настройки
 
