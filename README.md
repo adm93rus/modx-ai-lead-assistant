@@ -65,6 +65,7 @@ php build.transport.php
 
 | Настройка | Зачем |
 | --- | --- |
+| `aiassistant.debug` | `1` — чат только у пользователя, вошедшего в админку. Журнал: `core/cache/aiassistant/debug.log` |
 | `aiassistant.provider` | `yandexgpt`, `openai`, `gigachat`, `compatible` или `demo` |
 | `aiassistant.api_key` | Ключ провайдера. В браузер не попадает |
 | `aiassistant.folder_id` | Каталог Yandex Cloud, если модель задана не полным `gpt://…` |
@@ -171,6 +172,7 @@ php -S 127.0.0.1:8765 tests/demo-server.php
 - Текст посетителя в чате пишется через `textContent`.
 - На сессию действует лимит сообщений в минуту (`aiassistant.rate_limit`).
 - Фид — доверенный URL из настроек администратора. Схемы кроме `http` и `https` отбрасываются.
+- `aiassistant.debug` оставляет виджет и `action.php` только сессии менеджера (`mgr`). В `debug.log` пишутся сообщение, критерии, кандидаты, промпт и ответ. Ключ API и пароль фида вырезаются.
 
 ## Состав компонента
 

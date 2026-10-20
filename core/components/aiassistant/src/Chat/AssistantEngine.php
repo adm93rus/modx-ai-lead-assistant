@@ -92,41 +92,49 @@ class AssistantEngine
         $message = trim((string) $message);
         $lang = Text::mostlyLatin($message) ? 'en' : $this->lang;
         $criteria = $this->extractor->extract($this->corpus($history, $message));
+        $trace = $this->emptyTrace($criteria);
 
         if (!$catalog) {
-            return $this->ok($this->composer->emptyCatalog($lang), array(), $criteria, $this->emptySet($criteria), 'catalog');
+            return $this->finish(
+                $this->ok($this->composer->emptyCatalog($lang), array(), $criteria, $this->emptySet($criteria), 'catalog'),
+                $trace
+            );
         }
 
         $candidates = $this->retriever->retrieve($catalog, $criteria);
+        $trace['candidates'] = $this->candidateRows($candidates);
         $useDemo = $this->providerName === 'demo' || $this->provider === null;
 
         if ($useDemo) {
-            return $this->fromSuggestion($candidates, $criteria, $lang, 'demo');
+            return $this->finish($this->fromSuggestion($candidates, $criteria, $lang, 'demo'), $trace);
         }
 
         $promptConfig = $this->promptConfig;
         $promptConfig['categories'] = $this->retriever->categories($catalog);
         $messages = $this->prompts->build($history, $message, $candidates, $criteria, $promptConfig);
         $response = $this->provider->complete($messages);
+        $trace['prompt'] = $messages;
+        $trace['model_raw'] = isset($response['content']) ? (string) $response['content'] : '';
+        $trace['model_error'] = isset($response['error']) ? (string) $response['error'] : '';
 
         if (empty($response['ok'])) {
             if ($this->fallback && $this->retriever->hasSignal($criteria)) {
-                return $this->fromSuggestion($candidates, $criteria, $lang, 'fallback');
+                return $this->finish($this->fromSuggestion($candidates, $criteria, $lang, 'fallback'), $trace);
             }
 
-            return $this->fail(
+            return $this->finish($this->fail(
                 isset($response['error']) ? (string) $response['error'] : 'Assistant request failed',
                 $criteria
-            );
+            ), $trace);
         }
 
         $decoded = $this->normalizer->decode(isset($response['content']) ? $response['content'] : '');
         if ($decoded === null) {
             if ($this->fallback && $this->retriever->hasSignal($criteria)) {
-                return $this->fromSuggestion($candidates, $criteria, $lang, 'fallback');
+                return $this->finish($this->fromSuggestion($candidates, $criteria, $lang, 'fallback'), $trace);
             }
 
-            return $this->fail('Invalid assistant response', $criteria);
+            return $this->finish($this->fail('Invalid assistant response', $criteria), $trace);
         }
 
         $validated = $this->assembler->validate($decoded['products'], $catalog, $criteria);
@@ -136,17 +144,17 @@ class AssistantEngine
 
         if (!$validated['products']) {
             if (!$this->retriever->hasSignal($criteria) && $decoded['reply'] !== '') {
-                return $this->ok($decoded['reply'], array(), $criteria, $validated, 'model');
+                return $this->finish($this->ok($decoded['reply'], array(), $criteria, $validated, 'model'), $trace);
             }
             if ($this->retriever->hasSignal($criteria)) {
                 $suggested = $this->fromSuggestion($candidates, $criteria, $lang, 'fallback');
                 if (!empty($suggested['products'])) {
-                    return $suggested;
+                    return $this->finish($suggested, $trace);
                 }
             }
             $reply = $decoded['reply'] !== '' ? $decoded['reply'] : $this->composer->noMatches($lang);
 
-            return $this->ok($reply, array(), $criteria, $validated, 'model');
+            return $this->finish($this->ok($reply, array(), $criteria, $validated, 'model'), $trace);
         }
 
         $reply = $decoded['reply'];
@@ -154,7 +162,7 @@ class AssistantEngine
             $reply = $this->composer->compose($validated, $criteria, $this->currency, $lang);
         }
 
-        return $this->ok($reply, $validated['products'], $criteria, $validated, 'model');
+        return $this->finish($this->ok($reply, $validated['products'], $criteria, $validated, 'model'), $trace);
     }
 
     /**
@@ -168,13 +176,13 @@ class AssistantEngine
         $set = $this->assembler->validate($lines, $catalog, $criteria);
         $lang = $this->lang;
 
-        return $this->ok(
+        return $this->finish($this->ok(
             $set['products'] ? $this->composer->compose($set, $criteria, $this->currency, $lang) : $this->composer->noMatches($lang),
             $set['products'],
             $criteria,
             $set,
             'specification'
-        );
+        ), $this->emptyTrace($criteria));
     }
 
     /**
@@ -286,6 +294,63 @@ class AssistantEngine
      * @param array<string, mixed> $set
      * @return array<string, mixed>
      */
+    /**
+     * @param array<string, mixed> $criteria
+     * @return array<string, mixed>
+     */
+    private function emptyTrace(array $criteria)
+    {
+        return array(
+            'criteria' => $criteria,
+            'candidates' => array(),
+            'prompt' => array(),
+            'model_raw' => '',
+            'model_error' => '',
+        );
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $candidates
+     * @return array<int, array<string, mixed>>
+     */
+    private function candidateRows(array $candidates)
+    {
+        $rows = array();
+        foreach ($candidates as $product) {
+            if (!is_array($product)) {
+                continue;
+            }
+            $rows[] = array(
+                'article' => isset($product['article']) ? (string) $product['article'] : '',
+                'name' => isset($product['name']) ? (string) $product['name'] : '',
+                'price' => isset($product['price']) ? $product['price'] : null,
+                'color' => isset($product['color']) ? (string) $product['color'] : '',
+                'category' => isset($product['category']) ? (string) $product['category'] : '',
+                'score' => isset($product['_score']) ? $product['_score'] : 0,
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     * @param array<string, mixed> $trace
+     * @return array<string, mixed>
+     */
+    private function finish(array $result, array $trace)
+    {
+        $result['debug'] = array(
+            'criteria' => isset($trace['criteria']) && is_array($trace['criteria']) ? $trace['criteria'] : array(),
+            'candidates' => isset($trace['candidates']) && is_array($trace['candidates']) ? $trace['candidates'] : array(),
+            'prompt' => isset($trace['prompt']) && is_array($trace['prompt']) ? $trace['prompt'] : array(),
+            'model_raw' => isset($trace['model_raw']) ? (string) $trace['model_raw'] : '',
+            'model_error' => isset($trace['model_error']) ? (string) $trace['model_error'] : '',
+        );
+
+        return $result;
+    }
+
     private function ok($message, array $products, array $criteria, array $set, $source)
     {
         return array(

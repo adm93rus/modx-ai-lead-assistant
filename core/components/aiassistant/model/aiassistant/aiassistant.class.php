@@ -42,7 +42,7 @@ class AiAssistant
 
     public function getWidgetHtml()
     {
-        if (!$this->enabled() || !$this->visibleOnResource()) {
+        if (!$this->enabled() || !$this->visibleOnResource() || !$this->chatAllowed()) {
             return '';
         }
 
@@ -54,7 +54,9 @@ class AiAssistant
 
         return $renderer->render(array(
             'assets_url' => $this->config['assetsUrl'],
-            'endpoint' => rtrim((string) $this->config['assetsUrl'], '/') . '/action.php',
+            'endpoint' => isset($this->config['endpoint'])
+                ? (string) $this->config['endpoint']
+                : rtrim((string) $this->config['assetsUrl'], '/') . '/action.php',
             'assistant_name' => $this->option('assistant_name', 'AI-ассистент'),
             'welcome' => $this->option('welcome_text', ''),
             'placeholder' => $this->option('placeholder', ''),
@@ -67,6 +69,7 @@ class AiAssistant
             'cart_mode' => $this->option('cart_mode', 'minishop2'),
             'cart_url' => $cartUrl,
             'spec_enabled' => $this->boolOption('spec_enabled', true),
+            'debug' => $this->debugEnabled(),
             'context' => $this->modx->context ? (string) $this->modx->context->get('key') : 'web',
         ));
     }
@@ -80,7 +83,17 @@ class AiAssistant
         if (!$this->enabled()) {
             return $this->respond(array('ok' => false, 'error' => 'Ассистент выключен'), 503);
         }
+        if (!$this->chatAllowed()) {
+            $this->writeDebug(array(
+                'event' => 'denied',
+                'action' => trim((string) (isset($data['action']) ? $data['action'] : 'message')),
+                'reason' => 'debug mode requires a manager session',
+            ));
 
+            return $this->respond(array('ok' => false, 'error' => 'Ассистент доступен только администратору'), 403);
+        }
+
+        $started = microtime(true);
         $action = trim((string) (isset($data['action']) ? $data['action'] : 'message'));
         $conversationId = trim((string) (isset($data['conversation_id']) ? $data['conversation_id'] : ''));
         if (!$this->validConversationId($conversationId)) {
@@ -88,7 +101,7 @@ class AiAssistant
         }
 
         if ($action === 'specification') {
-            return $this->specification($data, $conversationId);
+            return $this->specification($data, $conversationId, $started);
         }
         if ($action !== 'message') {
             return $this->respond(array('ok' => false, 'error' => 'Некорректное действие'), 422);
@@ -111,6 +124,12 @@ class AiAssistant
         }
 
         $result = $engine['engine']->handle($history, $message, $this->loadCatalog());
+        $this->writeDebug($this->messageTrace($result, array(
+            'conversation_id' => $conversationId,
+            'page_url' => $pageUrl,
+            'message' => $message,
+            'ms' => $this->elapsed($started),
+        )));
         if (empty($result['ok'])) {
             $this->log('Provider error: ' . (isset($result['error']) ? $result['error'] : 'unknown'));
 
@@ -166,7 +185,7 @@ class AiAssistant
      * @param array<string, mixed> $data
      * @return array{status: int, body: array<string, mixed>}
      */
-    private function specification(array $data, $conversationId)
+    private function specification(array $data, $conversationId, $started)
     {
         if (!$this->boolOption('spec_enabled', true)) {
             return $this->respond(array('ok' => false, 'error' => 'Спецификация выключена'), 403);
@@ -208,6 +227,13 @@ class AiAssistant
         }
 
         $result = $engine['engine']->specification($lines, $this->loadCatalog(), $criteria);
+        $this->writeDebug($this->messageTrace($result, array(
+            'event' => 'specification',
+            'conversation_id' => $conversationId,
+            'page_url' => $this->clip(isset($data['page_url']) ? $data['page_url'] : '', 1000),
+            'message' => $this->clip(isset($data['email']) ? $data['email'] : '', 254),
+            'ms' => $this->elapsed($started),
+        )));
         if (empty($result['products'])) {
             return $this->respond(array('ok' => false, 'error' => 'Товары не найдены в каталоге'), 422);
         }
@@ -793,8 +819,177 @@ class AiAssistant
         if (isset($this->modx) && method_exists($this->modx, 'log')) {
             $level = defined('modX::LOG_LEVEL_ERROR') ? constant('modX::LOG_LEVEL_ERROR') : 1;
             $this->modx->log($level, $message);
+        } else {
+            error_log($message);
+        }
+        if ($this->debugEnabled()) {
+            $this->appendDebugFile(array(
+                'time' => gmdate('c'),
+                'event' => 'error',
+                'message' => $message,
+            ));
+        }
+    }
+
+    private function debugEnabled()
+    {
+        return $this->boolOption('debug', false);
+    }
+
+    private function managerAuthenticated()
+    {
+        $user = isset($this->modx->user) ? $this->modx->user : null;
+        if (!is_object($user) || !method_exists($user, 'hasSessionContext')) {
+            return false;
+        }
+
+        return (bool) $user->hasSessionContext('mgr');
+    }
+
+    private function chatAllowed()
+    {
+        return !$this->debugEnabled() || $this->managerAuthenticated();
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    private function messageTrace(array $result, array $context)
+    {
+        $debug = isset($result['debug']) && is_array($result['debug']) ? $result['debug'] : array();
+        $articles = array();
+        $products = isset($result['products']) && is_array($result['products']) ? $result['products'] : array();
+        foreach ($products as $product) {
+            if (is_array($product) && isset($product['article'])) {
+                $articles[] = (string) $product['article'];
+            }
+        }
+
+        return array(
+            'event' => isset($context['event']) ? (string) $context['event'] : 'message',
+            'user_id' => $this->userId(),
+            'conversation_id' => isset($context['conversation_id']) ? (string) $context['conversation_id'] : '',
+            'page_url' => isset($context['page_url']) ? (string) $context['page_url'] : '',
+            'provider' => (string) $this->option('provider', 'demo'),
+            'message' => isset($context['message']) ? (string) $context['message'] : '',
+            'source' => isset($result['source']) ? (string) $result['source'] : '',
+            'error' => isset($result['error']) ? (string) $result['error'] : '',
+            'criteria' => isset($debug['criteria']) ? $debug['criteria'] : array(),
+            'candidates' => isset($debug['candidates']) ? $debug['candidates'] : array(),
+            'prompt' => isset($debug['prompt']) ? $debug['prompt'] : array(),
+            'model_raw' => isset($debug['model_raw']) ? (string) $debug['model_raw'] : '',
+            'model_error' => isset($debug['model_error']) ? (string) $debug['model_error'] : '',
+            'reply' => isset($result['message']) ? (string) $result['message'] : '',
+            'articles' => $articles,
+            'set' => isset($result['set']) ? $result['set'] : array(),
+            'ms' => isset($context['ms']) ? (int) $context['ms'] : 0,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     */
+    private function writeDebug(array $entry)
+    {
+        if (!$this->debugEnabled()) {
             return;
         }
-        error_log($message);
+        $entry['time'] = gmdate('c');
+        $this->appendDebugFile($entry);
+        if (!isset($this->modx) || !method_exists($this->modx, 'log')) {
+            return;
+        }
+        $summary = '[aiassistant:debug] ' . (isset($entry['event']) ? (string) $entry['event'] : 'event');
+        if (!empty($entry['source'])) {
+            $summary .= ' source=' . $entry['source'];
+        }
+        if (!empty($entry['articles']) && is_array($entry['articles'])) {
+            $summary .= ' articles=' . implode(',', $entry['articles']);
+        }
+        if (!empty($entry['message']) && is_string($entry['message'])) {
+            $summary .= ' ' . $this->clip($entry['message'], 160);
+        }
+        $level = defined('modX::LOG_LEVEL_INFO') ? constant('modX::LOG_LEVEL_INFO') : 3;
+        $this->modx->log($level, $summary);
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     */
+    private function appendDebugFile(array $entry)
+    {
+        $path = $this->debugPath();
+        $dir = dirname($path);
+        if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
+            return;
+        }
+        if (is_file($path) && filesize($path) > 2 * 1024 * 1024) {
+            @rename($path, $path . '.1');
+        }
+        $encoded = json_encode($this->redact($entry), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($encoded)) {
+            return;
+        }
+        foreach (array($this->option('api_key', ''), $this->option('feed_basic_pass', '')) as $secret) {
+            $secret = trim((string) $secret);
+            if (strlen($secret) >= 6) {
+                $encoded = str_replace($secret, '[redacted]', $encoded);
+            }
+        }
+        file_put_contents($path, $encoded . "\n", FILE_APPEND | LOCK_EX);
+    }
+
+    private function debugPath()
+    {
+        return rtrim((string) $this->modx->getOption('core_path'), '/\\') . '/cache/aiassistant/debug.log';
+    }
+
+    /**
+     * @param mixed $value
+     * @return mixed
+     */
+    private function redact($value, $key = '')
+    {
+        $secretKeys = array('api_key', 'authorization', 'feed_basic_pass', 'password', 'token', 'access_token');
+        if (is_array($value)) {
+            $clean = array();
+            foreach ($value as $childKey => $child) {
+                $clean[$childKey] = $this->redact($child, (string) $childKey);
+            }
+
+            return $clean;
+        }
+        if ($key !== '' && in_array(strtolower($key), $secretKeys, true)) {
+            return '[redacted]';
+        }
+        if (!is_string($value)) {
+            return $value;
+        }
+        $value = preg_replace('/\b(authorization|api[_-]?key|bearer|basic)\s*[:=]\s*\S+/iu', '$1 [redacted]', $value);
+        if (!is_string($value)) {
+            return '';
+        }
+        if (strlen($value) > 20000) {
+            $value = substr($value, 0, 20000) . '…';
+        }
+
+        return $value;
+    }
+
+    private function userId()
+    {
+        $user = isset($this->modx->user) ? $this->modx->user : null;
+        if (is_object($user) && method_exists($user, 'get')) {
+            return (int) $user->get('id');
+        }
+
+        return 0;
+    }
+
+    private function elapsed($started)
+    {
+        return (int) round((microtime(true) - (float) $started) * 1000);
     }
 }
