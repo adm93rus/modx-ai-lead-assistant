@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="2026-10-19 12:00">
+  <shop>
+    <categories>
+      <category id="10">Блокноты</category>
+      <category id="20">Термостаканы</category>
+    </categories>
+    <offers>
+      <offer id="101" available="true">
+        <vendorCode>6925.50</vendorCode>
+        <name>Блокнот Nota Bene</name>
+        <price>350</price>
+        <currencyId>RUR</currencyId>
+        <categoryId>10</categoryId>
+        <url>https://shop.example/bloknot</url>
+        <picture>https://shop.example/bloknot.jpg</picture>
+        <description>Мягкая обложка</description>
+        <param name="Цвет">красный</param>
+      </offer>
+      <offer id="202" available="false">
+        <vendorCode>11391.40</vendorCode>
+        <name>Термостакан Forma скрытый</name>
+        <price>790</price>
+        <categoryId>20</categoryId>
+        <param name="Цвет">синий</param>
+      </offer>
+      <offer id="201" available="true">
+        <vendorCode>11391.50</vendorCode>
+        <name>Термостакан Forma</name>
+        <price>790.00</price>
+        <categoryId>20</categoryId>
+        <url>https://shop.example/forma</url>
+        <param name="Цвет">красный</param>
+      </offer>
+    </offers>
+  </shop>
+</yml_catalog>

@@ -1,431 +1,188 @@
-# AI Lead Assistant for MODX 2, MODX 3, and WordPress
+# AI-ассистент каталога для MODX 2 и MODX 3
 
-A lightweight AI lead-assistant widget with adapters for MODX 2, MODX 3, and WordPress. Visitors can start a conversation, describe a project, answer a few clarifying questions, and hand the request off to the site owner. The owner receives the lead by email and optionally in Telegram.
+Плавающий чат на витрине, который собирает сет сувениров по бюджету, тиражу, цвету и поводу.
 
-The example uses:
+Посетитель пишет, например: «Нужен приветственный пак для программистов в синем цвете, бюджет до 1500 рублей за сет, тираж 50 штук». Компонент сначала отбирает подходящие строки каталога, затем просит модель собрать комплект только из этих строк. Цены и артикулы в карточке ответа берутся из каталога, а не из текста модели.
 
-- Vanilla HTML/CSS/JavaScript for the chat widget
-- MODX 2, MODX 3, or WordPress as the CMS-side adapter for validation, conversation state, lead handoff, and email
-- Google Cloud Run as a small outbound API gateway
-- Groq Responses API with `openai/gpt-oss-120b`
-- Telegram Bot API for instant lead notifications
+В ответе:
 
-## Architecture
+- текст с составом и суммой;
+- список товаров ссылками;
+- кнопка «Добавить в корзину» на весь сет;
+- кнопка «Оформить спецификацию» — заявка на визуализацию.
 
-```text
-Visitor
-  |
-  v
-Vanilla JS chat widget
-  |
-  +-----------+-----------+
-  |           |           |
-  v           v           v
-MODX 2      MODX 3     WordPress
-chat.php    chat.php    REST adapter
-  |           |           |
-  +-----------+-----------+
-              |
-              +----> CMS mail -> Email
-              |
-              v
-Google Cloud Run
-  |\
-  | \--> Telegram Bot API
-  |
-  v
-Groq Responses API
-  |
-  v
-openai/gpt-oss-120b
-```
+Ключи OpenAI, YandexGPT и GigaChat остаются на сервере.
 
-The browser never receives Groq, Telegram, or gateway secrets.
+## Что ставится на сайт
 
-## Repository structure
+Скопируйте в корень MODX:
 
 ```text
-frontend/
-  assistant.html
-  assistant.css
-  assistant.js
-modx/
-  chat.php
-  README.md
-modx3/
-  chat.php
-  README.md
-shared/
-  portfolio_assistant.ai_rules.txt
-wordpress/
-  web86-ai-lead-assistant.php
-  README.md
-cloud-run/
-  index.js
-  package.json
-  .env.example
+core/components/aiassistant/    →  core/components/aiassistant/
+assets/components/aiassistant/  →  assets/components/aiassistant/
 ```
 
-## 1. Frontend
+Нужны PHP 7.4+ и расширения curl, json, mbstring, simplexml. Один и тот же код работает на MODX 2.8+ и MODX 3: загрузчик сам выбирает `modX` или `MODX\Revolution\modX`.
 
-Copy the files from `frontend/` into your site and include the CSS and JavaScript. The root element contains the server endpoint:
+Дальше из корня сайта:
 
-```html
-<div
-    class="fw-assistant"
-    id="fwAssistant"
-    data-endpoint="/assets/components/assistant/api/chat.php"
->
+```bash
+php core/components/aiassistant/install.php
 ```
 
-The widget validates the visitor email before starting the conversation, keeps it only in `sessionStorage`, supports Enter/Shift+Enter, and disables the composer after a successful handoff.
+Если `config.core.php` лежит не рядом с `core/`, укажите корень:
 
-## 2. MODX 2 settings
+```bash
+php core/components/aiassistant/install.php --modx=/var/www/site
+```
 
-Create these System Settings:
+Повторный запуск обновляет сниппеты, плагин и чанк правил. Уже сохранённые значения настроек не затираются. Чтобы записать значения по умолчанию заново:
 
-| Setting | Example |
+```bash
+php core/components/aiassistant/install.php --force-settings
+```
+
+Плагин `aiAssistant` вешается на `OnWebPagePrerender` и вставляет виджет перед `</body>` на публичных HTML-страницах. Сниппет `[[!aiAssistant]]` ставит виджет в шаблон вручную; плагин тогда второй раз его не добавляет.
+
+### Транспортный пакет
+
+На машине, где уже стоит MODX:
+
+```bash
+cd _build
+cp build.config.sample.php build.config.php
+# поправьте MODX_BASE_PATH
+php build.transport.php
+```
+
+Пакет появится в `core/packages` этого MODX. Его ставят через «Управление пакетами». Повторная установка не перезаписывает уже изменённые системные настройки.
+
+## Настройки
+
+Система → Системные настройки → фильтр пространства имён `aiassistant`.
+
+Минимум для боевого режима:
+
+| Настройка | Зачем |
 | --- | --- |
-| `portfolio_assistant.enabled` | `1` |
-| `portfolio_assistant.owner_name` | `Konstantin` |
-| `portfolio_assistant.model` | `openai/gpt-oss-120b` |
-| `portfolio_assistant.email_to` | `you@example.com` |
-| `portfolio_assistant.max_messages` | `10` |
-| `portfolio_assistant.gateway_url` | `https://YOUR-SERVICE.run.app/chat` |
-| `portfolio_assistant.gateway_secret` | long random secret |
-| `portfolio_assistant.telegram_enabled` | `1` |
-| `portfolio_assistant.telegram_gateway_url` | `https://YOUR-SERVICE.run.app/telegram` |
+| `aiassistant.provider` | `yandexgpt`, `openai`, `gigachat`, `compatible` или `demo` |
+| `aiassistant.api_key` | Ключ провайдера. В браузер не попадает |
+| `aiassistant.folder_id` | Каталог Yandex Cloud, если модель задана не полным `gpt://…` |
+| `aiassistant.catalog_source` | `feed` или `resources` |
+| `aiassistant.feed_url` | Ссылка на JSON, XML или YML, если источник — `feed` |
+| `aiassistant.spec_email` | Куда слать спецификации. Пусто — `emailsender` |
 
-`portfolio_assistant.gateway_secret` is server-side only. Never render it into a template or JavaScript.
+`demo` не ходит во внешний API: сет собирается по отфильтрованному каталогу. Так можно проверить виджет до выдачи ключей. Если ключ пустой и включён `aiassistant.fallback`, посетитель тоже получает такой сет, а в лог MODX пишется причина.
 
-Copy `modx/chat.php` to:
+### Провайдеры
 
-```text
-/assets/components/assistant/api/chat.php
-```
+| Значение | Куда уходит запрос | Модель по умолчанию |
+| --- | --- | --- |
+| `openai` | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` |
+| `yandexgpt` | `https://llm.api.cloud.yandex.net/foundationModels/v1/completion` | `yandexgpt/latest` |
+| `gigachat` | OAuth Сбера, затем `/chat/completions` | `GigaChat` |
+| `compatible` | OpenAI-совместимый URL из `aiassistant.api_base` | как у OpenAI |
 
-The example assumes that location when bootstrapping MODX.
+Для YandexGPT ключ вида Api-Key уходит заголовком `Authorization: Api-Key …`. IAM-токен (три части через точку) уходит как `Bearer`. Это переключается настройкой `aiassistant.auth_mode`: `auto`, `api_key`, `bearer`.
 
-### Editable AI rules in MODX
+Для GigaChat в `api_key` кладётся Authorization key из кабинета (уже в Base64, без префикса `Basic`). Scope по умолчанию `GIGACHAT_API_PERS`. Сертификат НУЦ Минцифры лучше положить в `aiassistant.ssl_cainfo`. `aiassistant.ssl_verify = 0` выключает проверку сертификата — только если файл CA поставить нельзя.
 
-Both MODX 2 and MODX 3 read business-specific AI instructions from a Chunk named:
+`compatible` подходит для Groq, шлюза Yandex в режиме OpenAI и своего прокси. Базовый URL обязателен и должен заканчиваться на `/v1`, без `/chat/completions`.
 
-```text
-portfolio_assistant.ai_rules
-```
+Правила магазина лежат в чанке `aiassistant.rules`. Компонент читает сырой текст и не прогоняет его через парсер MODX. Ограничения безопасности (не выдумывать артикулы, не раскрывать ключи, вернуть JSON) заданы в коде и перекрывают чанк.
 
-A ready-to-paste template is included at:
+## Каталог
 
-```text
-shared/portfolio_assistant.ai_rules.txt
-```
+Источник `feed` скачивает HTTP(S) фид и приводит его к плоскому списку. Подходят:
 
-The adapters read the raw Chunk content instead of rendering it, so MODX tags inside the text are not processed. Security, accuracy, and handoff rules remain protected in PHP.
+- JSON-массив или объект с ключом `products`, `items`, `offers`, `goods`;
+- XML с узлами `offer`, `product`, `item`;
+- Yandex Market YML, включая `vendorCode`, `param name="Цвет"` и справочник категорий.
 
+Кодировка `windows-1251` читается из объявления XML. Недоступные офферы (`available="false"`) пропускаются. Поля можно называть по-разному: `article` / `sku` / `vendorCode`, `name` / `title`, `price` / `cost`, `color` / `цвет`.
 
-## MODX 3 adapter
-
-The same frontend and Cloud Run deployment can also be used with MODX 3.
-
-Copy:
-
-```text
-modx3/chat.php
-```
-
-to:
-
-```text
-/assets/components/assistant/api/chat.php
-```
-
-MODX 3 uses the same System Settings as MODX 2:
-
-```text
-portfolio_assistant.enabled
-portfolio_assistant.owner_name
-portfolio_assistant.model
-portfolio_assistant.email_to
-portfolio_assistant.max_messages
-portfolio_assistant.gateway_url
-portfolio_assistant.gateway_secret
-portfolio_assistant.telegram_enabled
-portfolio_assistant.telegram_gateway_url
-```
-
-The MODX 3 adapter differs mainly in bootstrap and mail integration:
-
-```php
-use MODX\Revolution\modX;
-use MODX\Revolution\Mail\modMail;
-use MODX\Revolution\Mail\modPHPMailer;
-
-require_once $rootPath . '/config.core.php';
-require_once MODX_CORE_PATH . 'vendor/autoload.php';
-
-$modx = new modX();
-$modx->initialize('web');
-
-$mail = new modPHPMailer($modx);
-```
-
-This uses MODX 3's Composer autoloader and namespaced mail classes instead of the legacy MODX 2 service-loading pattern.
-
-The frontend endpoint remains:
-
-```html
-<div
-    class="fw-assistant"
-    id="fwAssistant"
-    data-endpoint="/assets/components/assistant/api/chat.php"
->
-```
-
-See `modx3/README.md` for the full setup.
-
-
-## WordPress adapter
-
-The same Cloud Run deployment can also be used by WordPress without changing `cloud-run/index.js`.
-
-Install the plugin from:
-
-```text
-wordpress/web86-ai-lead-assistant.php
-```
-
-into:
-
-```text
-wp-content/plugins/web86-ai-lead-assistant/web86-ai-lead-assistant.php
-```
-
-Activate it, then open:
-
-```text
-Settings → AI Lead Assistant
-```
-
-Configure the same Cloud Run `/chat` and `/telegram` URLs and the same gateway secret.
-
-For production, prefer keeping the gateway secret outside the database:
-
-```php
-define('WEB86_AI_GATEWAY_SECRET', 'your-long-random-secret');
-```
-
-The WordPress plugin exposes:
-
-```text
-POST /wp-json/web86-ai-lead/v1/chat
-```
-
-Use that value as the frontend `data-endpoint`:
-
-```html
-<div
-    class="fw-assistant"
-    id="fwAssistant"
-    data-endpoint="/wp-json/web86-ai-lead/v1/chat"
->
-```
-
-The frontend now sends a random `conversation_id` for both CMS adapters. MODX may continue using PHP session state, while WordPress stores its conversation state in Transients.
-
-WordPress lead email is sent with `wp_mail()`; Telegram continues through the same Cloud Run `/telegram` endpoint, so the Telegram bot token stays in Google Secret Manager.
-
-See `wordpress/README.md` for the full setup.
-
-## 3. MODX email
-
-The MODX 2 adapter uses the legacy MODX mail service:
-
-```php
-$mail = $modx->getService('mail', 'mail.modPHPMailer');
-```
-
-Configure MODX email/SMTP normally before testing. The visitor email is used as `Reply-To`.
-
-## 4. Cloud Run gateway
-
-The gateway exposes:
-
-```text
-GET  /health
-POST /chat
-POST /telegram
-```
-
-`/chat` and `/telegram` require:
-
-```http
-X-Gateway-Secret: YOUR_SECRET
-```
-
-Install:
-
-```bash
-cd cloud-run
-npm install
-```
-
-Required environment variables:
-
-```text
-GROQ_API_KEY
-GATEWAY_SECRET
-TELEGRAM_BOT_TOKEN
-TELEGRAM_CHAT_ID
-```
-
-Prefer Google Secret Manager for API keys.
-
-### Example Secret Manager setup
-
-```bash
-read -s GROQ_API_KEY
-printf '%s' "$GROQ_API_KEY" | \
-  gcloud secrets create portfolio-groq-key --data-file=-
-
-read -s GATEWAY_SECRET
-printf '%s' "$GATEWAY_SECRET" | \
-  gcloud secrets create portfolio-gateway-secret --data-file=-
-
-read -s TELEGRAM_BOT_TOKEN
-printf '%s' "$TELEGRAM_BOT_TOKEN" | \
-  gcloud secrets create portfolio-telegram-bot-token --data-file=-
-```
-
-Grant the Cloud Run service account `roles/secretmanager.secretAccessor` for each secret.
-
-### Deploy
-
-```bash
-gcloud run deploy portfolio-assistant-gateway \
-  --source . \
-  --region=europe-west1 \
-  --allow-unauthenticated \
-  --service-account="YOUR_SERVICE_ACCOUNT" \
-  --set-secrets="GROQ_API_KEY=portfolio-groq-key:1,GATEWAY_SECRET=portfolio-gateway-secret:1,TELEGRAM_BOT_TOKEN=portfolio-telegram-bot-token:1" \
-  --set-env-vars="TELEGRAM_CHAT_ID=YOUR_TELEGRAM_CHAT_ID" \
-  --memory=256Mi \
-  --cpu=1 \
-  --min=0 \
-  --max=3 \
-  --timeout=45s
-```
-
-## 5. Test the gateway
-
-Health:
-
-```bash
-curl "$GATEWAY_URL/health"
-```
-
-Groq:
-
-```bash
-curl -sS \
-  -X POST \
-  "$GATEWAY_URL/chat" \
-  -H "Content-Type: application/json" \
-  -H "X-Gateway-Secret: $GATEWAY_SECRET" \
-  -d '{
-    "model": "openai/gpt-oss-120b",
-    "instructions": "Reply briefly in English.",
-    "input": [{"role":"user","content":"Hello. Who are you?"}],
-    "max_output_tokens": 200
-  }'
-```
-
-Telegram:
-
-```bash
-curl -sS \
-  -X POST \
-  "$GATEWAY_URL/telegram" \
-  -H "Content-Type: application/json" \
-  -H "X-Gateway-Secret: $GATEWAY_SECRET" \
-  -d '{
-    "name": "John",
-    "email": "john@example.com",
-    "website": "example.com",
-    "request": "Build a WordPress website",
-    "summary": "The client needs a small WordPress website.",
-    "page_url": "https://example.com/"
-  }'
-```
-
-## 6. Lead handoff
-
-The model returns structured JSON:
+Пример:
 
 ```json
-{
-  "reply": "...",
-  "ready_to_handoff": false,
-  "handoff_message": "",
-  "lead": {
-    "name": null,
-    "website": null,
-    "request": "...",
-    "summary": "..."
-  }
-}
+[
+  {"id": 202, "article": "11391.40", "name": "Термостакан Forma", "color": "синий", "price": 790, "category": "Термостаканы", "url": "/termokrugka-forma-blue"},
+  {"id": 301, "article": "7212.40", "name": "Кабель-рулетка 3-в-1", "color": "синий", "price": 560, "category": "Кабели и гаджеты", "url": "/kabel-ruletka-blue"}
+]
 ```
 
-The model may decide that a lead is ready, but it is not allowed to claim that delivery already happened. The server performs the real delivery. Only after email or Telegram succeeds does the visitor receive the final handoff message.
+`id` — ID ресурса MODX. Он нужен кнопке корзины. Если артикул и ID — одно и то же число, в корзину такой ID не подставляется, чтобы не перепутать его с артикулом. Явные поля `resource_id`, `modx_id`, `product_id` всегда считаются ID ресурса.
 
-## 7. Reliability details
+Фид кэшируется в `core/cache/aiassistant/catalog.json` на `aiassistant.feed_cache_ttl` секунд. `0` отключает кэш.
 
-- The current visitor message is committed to PHP session history only after the request completes successfully, preventing duplicate history after retries.
-- The visitor email is injected into server-controlled AI instructions so the model does not ask for it again.
-- Conversation history is bounded with `portfolio_assistant.max_messages`.
-- User messages are rendered with `textContent`, not `innerHTML`.
-- Groq and Telegram credentials remain in Cloud Run / Secret Manager.
-- Email and Telegram are independent channels; if either succeeds, the lead is considered delivered.
+Источник `resources` собирает каталог из базы, без pdoTools:
 
-## 8. Security notes
+- если есть таблица `ms2_products`, читаются опубликованные товары miniShop2: артикул, цена, картинка, раздел и опция цвета (`aiassistant.option_color`);
+- иначе читаются ресурсы и TV `article`, `price`, `color`, `image`. Имена TV меняются настройками.
 
-This is an educational MVP. For heavier production traffic consider durable rate limiting, abuse challenges, persistent lead storage, stronger observability, automated secret rotation, and IAM-authenticated Cloud Run calls when your hosting environment supports them.
+`aiassistant.parents` ограничивает разделы, `aiassistant.class_key` по умолчанию `msProduct`. На MODX 3 miniShop2 может писать класс `MiniShop2\Model\msProduct`; если с фильтром выборка пустая, компонент повторяет запрос без фильтра класса.
 
-Never commit real API keys, Telegram bot tokens, gateway secrets, visitor data, or production configuration.
+Сниппет `[[!aiAssistantFeed]]` отдаёт уже собранный каталог JSON. Его ставят на отдельный ресурс с пустым шаблоном и типом содержимого `application/json`. Этот URL можно указать как `feed_url` на другом сайте. Не указывайте этот же URL как фид, пока источник стоит в `feed`: получится запрос страницы к самой себе. Для своего магазина оставьте источник `resources` либо кормите ассистента внешним фидом.
 
-## License
+## Как отбираются товары
+
+Перед вызовом модели сообщение разбирается без нейросети:
+
+- бюджет: «бюджет до 1500», «до 1200 руб», «не дороже 2000»;
+- тираж: «тираж 50», «50 штук»;
+- цвет по словарю («синем» → синий, «красн» → красный);
+- темы: «программист» поднимает кабель, флешку, термостакан; «приветственный» — термостакан, блокнот, ручку, кружку.
+
+В промпт попадают только строки, которые проходят жёсткие условия: цвет, если он назван, и цена не выше бюджета комплекта. Число строк ограничено `aiassistant.max_candidates` (по умолчанию 40). Своя карта тем — JSON в `aiassistant.themes`, например `{"программист":["кабель","флеш"]}`.
+
+Модель обязана вернуть JSON:
+
+```json
+{"reply":"...","set_title":"...","products":[{"article":"11391.40","qty":1}]}
+```
+
+Дальше сервер выбрасывает неизвестные артикулы, заново считает цены по каталогу и не даёт сумме комплекта превысить бюджет. Если модель назвала чужой артикул, текст ответа заменяется на текст, собранный из проверенных позиций. Если модель недоступна, при включённом `fallback` посетитель получает тот же проверенный сет.
+
+Для запроса про синий пак до 1500 ₽ и тираж 50 шт. из примера каталога получается комплект: кабель-рулетка `7212.40` (560 ₽) и термостакан Forma `11391.40` (790 ₽). Комплект 1 350 ₽, заказ на 50 шт. — 67 500 ₽.
+
+## Корзина и спецификация
+
+«Добавить в корзину» отправляет каждую позицию сета в miniShop2: `count` равен числу штук в комплекте, умноженному на тираж. Если на странице уже загружен `miniShop2.send`, используется он, и шапка корзины обновляется как обычно. Иначе идёт POST на `/assets/components/minishop2/action.php`. Свой обработчик: `aiassistant.cart_mode = custom` и URL в `aiassistant.cart_url`. Туда уходит JSON `{ "items": [{ "id": 202, "article": "11391.40", "count": 50 }] }`.
+
+«Оформить спецификацию» спрашивает имя, компанию, email, телефон и комментарий. Сервер заново находит артикулы в каталоге, пересчитывает суммы и отправляет письмо через почту MODX. Копия заявки пишется в `core/cache/aiassistant/specs/ГГГГ-ММ-specs.jsonl`, если не выключен `aiassistant.log_enabled`.
+
+Кнопку можно спрятать на отдельных шаблонах: `aiassistant.hide_templates` — ID через запятую. `aiassistant.show_templates` оставляет виджет только на перечисленных шаблонах. Положение кнопки: `right` или `left`.
+
+## Проверка без MODX
+
+Из корня репозитория:
+
+```bash
+php tests/run.php
+php -S 127.0.0.1:8765 tests/demo-server.php
+```
+
+Демо открывает витрину с примером каталога и тем же виджетом. Провайдер там `demo`, корзина отвечает успехом, спецификация проверяет email и артикулы.
+
+## Безопасность
+
+- Ключ, пароль фида и токен GigaChat не попадают в HTML и JavaScript.
+- Запрос к `action.php` принимается только с того же хоста и только как JSON.
+- Ссылки товаров допускают `http`, `https` и путь от корня сайта.
+- Текст посетителя в чате пишется через `textContent`.
+- На сессию действует лимит сообщений в минуту (`aiassistant.rate_limit`).
+- Фид — доверенный URL из настроек администратора. Схемы кроме `http` и `https` отбрасываются.
+
+## Состав компонента
+
+```text
+core/components/aiassistant/          классы, лексиконы, элементы, установщик
+assets/components/aiassistant/        action.php, css, js, пример каталога
+_build/                               сборка транспортного пакета
+tests/                                проверки разбора фида, RAG и провайдеров
+```
+
+Предыдущий пример лид-ассистента (почта, Telegram, Cloud Run) остался в `modx/`, `modx3/`, `wordpress/`, `cloud-run/` и описан в `docs/lead-assistant-example.md`. Этот компонент его не вызывает: запрос в нейросеть уходит из MODX напрямую.
+
+## Лицензия
 
 MIT.
-
-
-## Lead logging and recovery
-
-All three CMS adapters can keep a small persistent lead journal so a contact is not lost when a visitor leaves before the final handoff.
-
-The lifecycle is stored as append-only JSONL events:
-
-```text
-contact_saved
-first_request
-handoff_success
-handoff_failed
-```
-
-Files are split by month:
-
-```text
-2026-10-AILeadLogs.jsonl
-2026-11-AILeadLogs.jsonl
-```
-
-Each conversation is correlated by `conversation_id`. The viewer combines the events into one lead row with one of these states:
-
-```text
-Contact only
-Conversation started
-Handoff failed
-Sent
-```
-
-Only the data needed to recover the lead is stored: email, source page, first request, and — when handoff is attempted — the same compact lead fields used for Telegram (`name`, `website`, `request`, `summary`) plus delivery-channel results. IP addresses and User-Agent strings are not stored.
-
-The viewers support period/status/contact/request filtering and CSV export.

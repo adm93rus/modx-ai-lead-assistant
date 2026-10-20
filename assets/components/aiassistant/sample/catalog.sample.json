@@ -1,0 +1,101 @@
+[
+  {
+    "id": 101,
+    "article": "6925.50",
+    "name": "Блокнот Nota Bene",
+    "color": "красный",
+    "price": 350,
+    "category": "Блокноты",
+    "url": "/bloknot-nota-bene-red",
+    "image": "",
+    "description": "Мягкая обложка, 80 листов"
+  },
+  {
+    "id": 102,
+    "article": "6925.40",
+    "name": "Блокнот Nota Bene",
+    "color": "синий",
+    "price": 350,
+    "category": "Блокноты",
+    "url": "/bloknot-nota-bene-blue",
+    "image": "",
+    "description": "Мягкая обложка, 80 листов"
+  },
+  {
+    "id": 201,
+    "article": "11391.50",
+    "name": "Термостакан Forma",
+    "color": "красный",
+    "price": 790,
+    "category": "Термостаканы",
+    "url": "/termokrugka-forma-red",
+    "image": "",
+    "description": "Нержавеющая сталь, 350 мл"
+  },
+  {
+    "id": 202,
+    "article": "11391.40",
+    "name": "Термостакан Forma",
+    "color": "синий",
+    "price": 790,
+    "category": "Термостаканы",
+    "url": "/termokrugka-forma-blue",
+    "image": "",
+    "description": "Нержавеющая сталь, 350 мл"
+  },
+  {
+    "id": 301,
+    "article": "7212.40",
+    "name": "Кабель-рулетка 3-в-1",
+    "color": "синий",
+    "price": 560,
+    "category": "Кабели и гаджеты",
+    "url": "/kabel-ruletka-blue",
+    "image": "",
+    "description": "USB-C, Lightning и micro-USB, для программистов и офиса"
+  },
+  {
+    "id": 302,
+    "article": "8841.40",
+    "name": "Флешка Soft Touch 16 ГБ",
+    "color": "синий",
+    "price": 420,
+    "category": "Электроника",
+    "url": "/fleshka-soft",
+    "image": "",
+    "description": "Корпус soft-touch"
+  },
+  {
+    "id": 401,
+    "article": "3301.10",
+    "name": "Ручка Madrid",
+    "color": "синий",
+    "price": 90,
+    "category": "Ручки",
+    "url": "/ruchka-madrid",
+    "image": "",
+    "description": "Синие чернила"
+  },
+  {
+    "id": 501,
+    "article": "5500.00",
+    "name": "Ежедневник Status",
+    "color": "синий",
+    "price": 1890,
+    "category": "Ежедневники",
+    "url": "/ezhednevnik-status",
+    "image": "",
+    "description": "Кожаная обложка"
+  },
+  {
+    "id": 601,
+    "article": "2204.20",
+    "name": "Кружка Office",
+    "color": "белый",
+    "price": 310,
+    "category": "Кружки",
+    "url": "/kruzhka-office",
+    "image": "",
+    "description": "Керамика, 320 мл"
+  }
+]

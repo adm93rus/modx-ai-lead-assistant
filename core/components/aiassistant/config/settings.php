@@ -1,0 +1,68 @@
+<?php
+
+/**
+ * System settings installed with the component.
+ * Values already saved by an administrator are kept on reinstall.
+ */
+
+return array(
+    array('key' => 'aiassistant.enabled', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.assistant_name', 'value' => 'AI-ассистент', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.position', 'value' => 'right', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.accent', 'value' => '#1d4ed8', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.show_templates', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.hide_templates', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.welcome_text', 'value' => 'Здравствуйте! Помогу собрать набор сувениров. Напишите бюджет на один сет, тираж, цвет и повод.', 'xtype' => 'textarea', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.placeholder', 'value' => 'Бюджет, тираж, цвет, повод…', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.hint', 'value' => 'Подберу сет', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.status_text', 'value' => 'Онлайн', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
+
+    array('key' => 'aiassistant.provider', 'value' => 'demo', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.api_key', 'value' => '', 'xtype' => 'text-password', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.api_base', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.model', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.folder_id', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.auth_mode', 'value' => 'auto', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.gigachat_scope', 'value' => 'GIGACHAT_API_PERS', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.oauth_url', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.temperature', 'value' => '0.3', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.max_tokens', 'value' => '1800', 'xtype' => 'numberfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.timeout', 'value' => '40', 'xtype' => 'numberfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.ssl_verify', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.ssl_cainfo', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.json_mode', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_provider'),
+    array('key' => 'aiassistant.fallback', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_provider'),
+
+    array('key' => 'aiassistant.catalog_source', 'value' => 'feed', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.feed_url', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.feed_format', 'value' => 'auto', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.feed_cache_ttl', 'value' => '3600', 'xtype' => 'numberfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.feed_basic_user', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.feed_basic_pass', 'value' => '', 'xtype' => 'text-password', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.parents', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.depth', 'value' => '10', 'xtype' => 'numberfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.context', 'value' => 'web', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.class_key', 'value' => 'msProduct', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.template', 'value' => '0', 'xtype' => 'numberfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.tv_article', 'value' => 'article', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.tv_price', 'value' => 'price', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.tv_color', 'value' => 'color', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.tv_image', 'value' => 'image', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.option_color', 'value' => 'color', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.image_base', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.include_tvs', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.max_candidates', 'value' => '40', 'xtype' => 'numberfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.max_in_set', 'value' => '4', 'xtype' => 'numberfield', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.themes', 'value' => '', 'xtype' => 'textarea', 'area' => 'aiassistant_catalog'),
+    array('key' => 'aiassistant.rules_chunk', 'value' => 'aiassistant.rules', 'xtype' => 'textfield', 'area' => 'aiassistant_catalog'),
+
+    array('key' => 'aiassistant.currency', 'value' => '₽', 'xtype' => 'textfield', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.cart_enabled', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.cart_mode', 'value' => 'minishop2', 'xtype' => 'textfield', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.cart_url', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.spec_enabled', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.spec_email', 'value' => '', 'xtype' => 'textfield', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.max_messages', 'value' => '12', 'xtype' => 'numberfield', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.rate_limit', 'value' => '12', 'xtype' => 'numberfield', 'area' => 'aiassistant_commerce'),
+    array('key' => 'aiassistant.log_enabled', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_commerce'),
+);
