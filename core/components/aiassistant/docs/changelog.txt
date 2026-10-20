@@ -1,4 +1,5 @@
 1.0.0
+- Режим отладки aiassistant.debug: чат только для входа в админку и подробный журнал core/cache/aiassistant/debug.log.
 - Первый выпуск компонента подбора сетов.
 - MODX 2.8+ и MODX 3, один код.
 - Провайдеры OpenAI, YandexGPT, GigaChat, OpenAI-compatible и локальный demo.

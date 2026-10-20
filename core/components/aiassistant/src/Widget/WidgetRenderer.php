@@ -20,12 +20,13 @@ class WidgetRenderer
         $hint = $this->text(isset($config['hint']) ? $config['hint'] : '', 'Подберу сет');
         $status = $this->text(isset($config['status']) ? $config['status'] : '', 'Онлайн');
         $assets = rtrim((string) (isset($config['assets_url']) ? $config['assets_url'] : '/assets/components/aiassistant/'), '/') . '/';
-        $version = '1.0.0';
+        $version = '1.0.1';
+        $debug = !empty($config['debug']);
         $cartEnabled = !empty($config['cart_enabled']);
         $specEnabled = !empty($config['spec_enabled']);
 
         $attrs = array(
-            'class' => 'fw-assistant is-' . $position,
+            'class' => 'fw-assistant is-' . $position . ($debug ? ' is-debug' : ''),
             'id' => 'fwAssistant',
             'style' => '--fw-assistant-accent:' . $accent . ';--fw-assistant-accent-2:' . $accent . ';',
             'data-endpoint' => (string) (isset($config['endpoint']) ? $config['endpoint'] : $assets . 'action.php'),
@@ -55,7 +56,7 @@ class WidgetRenderer
             $html .= ' ' . $key . '="' . $this->e($value) . '"';
         }
         $html .= '>' . "\n";
-        $html .= $this->window($name, $status, $welcome, $placeholder);
+        $html .= $this->window($name, $status, $welcome, $placeholder, $debug);
         $html .= $this->trigger($hint);
         $html .= '</div>' . "\n";
         $html .= '<script src="' . $this->e($assets . 'js/assistant.js?v=' . $version) . '" defer></script>' . "\n";
@@ -63,8 +64,10 @@ class WidgetRenderer
         return $html;
     }
 
-    private function window($name, $status, $welcome, $placeholder)
+    private function window($name, $status, $welcome, $placeholder, $debug)
     {
+        $badge = $debug ? ' <b class="fw-assistant-debug">отладка</b>' : '';
+
         return <<<HTML
     <div class="fw-assistant-window" id="fwAssistantWindow" role="dialog" aria-label="{$this->e($name)}" aria-hidden="true">
         <div class="fw-assistant-header">
@@ -72,7 +75,7 @@ class WidgetRenderer
                 <div class="fw-assistant-avatar"><span class="fw-assistant-avatar-core"></span></div>
                 <div class="fw-assistant-profile-text">
                     <strong>{$this->e($name)}</strong>
-                    <span><i></i> {$this->e($status)}</span>
+                    <span><i></i> {$this->e($status)}{$badge}</span>
                 </div>
             </div>
             <button class="fw-assistant-close" type="button" aria-label="Свернуть чат">

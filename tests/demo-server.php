@@ -88,6 +88,7 @@ if ($path === '/action.php') {
     $result = $engine->handle($history, $message, $products);
     $_SESSION['demo'][$conversation][] = array('role' => 'user', 'content' => $message);
     $_SESSION['demo'][$conversation][] = array('role' => 'assistant', 'content' => (string) $result['message']);
+    unset($result['debug']);
     demo_json(array(
         'ok' => !empty($result['ok']),
         'message' => $result['message'],
@@ -121,14 +122,33 @@ if ($path === '/' || $path === '/index.html') {
     demo_page(demo_catalog($products), $products);
 }
 
+if ($path === '/debug-visitor' || $path === '/debug-admin') {
+    $manager = $path === '/debug-admin';
+    setcookie('aiassistant_demo_mgr', $manager ? '1' : '0', 0, '/');
+    $_COOKIE['aiassistant_demo_mgr'] = $manager ? '1' : '0';
+    $assistant = demo_debug_assistant($manager);
+    demo_page(demo_catalog($products), $products, $assistant->getWidgetHtml());
+}
+
+if ($path === '/debug-action.php') {
+    $manager = isset($_COOKIE['aiassistant_demo_mgr']) && $_COOKIE['aiassistant_demo_mgr'] === '1';
+    $data = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($data)) {
+        demo_json(array('ok' => false, 'error' => 'Некорректный JSON'), 400);
+    }
+    $response = demo_debug_assistant($manager)->handleApi($data);
+    demo_json($response['body'], $response['status']);
+}
+
 http_response_code(404);
 header('Content-Type: text/plain; charset=utf-8');
 echo 'Not found';
 exit;
 
-function demo_page($content, array $products)
+function demo_page($content, array $products, $widget = null)
 {
-    $widget = (new WidgetRenderer())->render(array(
+    if ($widget === null) {
+        $widget = (new WidgetRenderer())->render(array(
             'assets_url' => '/assets/components/aiassistant/',
             'endpoint' => '/action.php',
             'assistant_name' => 'AI-ассистент',
@@ -141,6 +161,7 @@ function demo_page($content, array $products)
             'spec_enabled' => true,
             'context' => 'web',
         ));
+    }
 
     header('Content-Type: text/html; charset=utf-8');
     echo '<!doctype html><html lang="ru"><head><meta charset="utf-8">'
@@ -182,4 +203,59 @@ function demo_product(array $product)
         . htmlspecialchars((string) $product['price'], ENT_QUOTES, 'UTF-8')
         . ' ₽ · ' . htmlspecialchars($product['color'], ENT_QUOTES, 'UTF-8') . '</p><p>'
         . htmlspecialchars($product['description'], ENT_QUOTES, 'UTF-8') . '</p></article>';
+}
+
+function demo_debug_assistant($manager)
+{
+    static $assistants = array();
+    $key = $manager ? 'mgr' : 'web';
+    if (isset($assistants[$key])) {
+        return $assistants[$key];
+    }
+
+    require_once __DIR__ . '/ModxStub.php';
+    require_once dirname(__DIR__) . '/core/components/aiassistant/model/aiassistant/aiassistant.class.php';
+    $root = sys_get_temp_dir() . '/aiassistant-demo-debug';
+    if (!is_dir($root) && !mkdir($root, 0700, true) && !is_dir($root)) {
+        throw new RuntimeException('Cannot create debug demo directory');
+    }
+    $modx = new AiAssistantTestModx(array(
+        'core_path' => $root . '/',
+        'assets_url' => '/assets/',
+        'aiassistant.core_path' => dirname(__DIR__) . '/core/components/aiassistant/',
+        'aiassistant.debug' => '1',
+        'aiassistant.enabled' => '1',
+        'aiassistant.provider' => 'demo',
+        'aiassistant.catalog_source' => 'feed',
+        'aiassistant.feed_url' => 'https://catalog.example/products.json',
+        'aiassistant.feed_format' => 'json',
+        'aiassistant.feed_cache_ttl' => '86400',
+        'aiassistant.api_key' => 'sk-demo-should-not-leak',
+        'aiassistant.currency' => '₽',
+        'aiassistant.fallback' => '1',
+        'aiassistant.rules_chunk' => '',
+    ), $manager);
+    $assistant = new AiAssistant($modx, array('endpoint' => '/debug-action.php'));
+    demo_seed_catalog($assistant, $root);
+    $assistants[$key] = $assistant;
+
+    return $assistant;
+}
+
+function demo_seed_catalog($assistant, $root)
+{
+    $method = new ReflectionMethod($assistant, 'catalogSignature');
+    $method->setAccessible(true);
+    $signature = md5((string) json_encode($method->invoke($assistant)));
+    $dir = rtrim($root, '/') . '/cache/aiassistant';
+    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+        return;
+    }
+    $raw = file_get_contents(dirname(__DIR__) . '/assets/components/aiassistant/sample/catalog.sample.json');
+    $parsed = (new FeedParser())->parse($raw, 'json');
+    file_put_contents($dir . '/catalog.json', json_encode(array(
+        'signature' => $signature,
+        'fetched_at' => time(),
+        'products' => $parsed['products'],
+    ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }

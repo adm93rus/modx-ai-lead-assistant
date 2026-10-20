@@ -7,6 +7,7 @@
 
 return array(
     array('key' => 'aiassistant.enabled', 'value' => '1', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_main'),
+    array('key' => 'aiassistant.debug', 'value' => '0', 'xtype' => 'combo-boolean', 'area' => 'aiassistant_main'),
     array('key' => 'aiassistant.assistant_name', 'value' => 'AI-ассистент', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
     array('key' => 'aiassistant.position', 'value' => 'right', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),
     array('key' => 'aiassistant.accent', 'value' => '#1d4ed8', 'xtype' => 'textfield', 'area' => 'aiassistant_main'),

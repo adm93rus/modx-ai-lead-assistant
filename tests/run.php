@@ -247,6 +247,111 @@ $widget = (new AiAssistant\Widget\WidgetRenderer())->render(array(
 test_assert(strpos($widget, '&lt;script&gt;alert(1)&lt;/script&gt;') !== false, 'widget escapes the assistant name');
 test_assert(strpos($widget, 'is-right') !== false, 'widget defaults to the right');
 test_assert(strpos($widget, 'data-endpoint="/action.php"') !== false, 'widget endpoint');
+test_assert(strpos($widget, 'is-debug') === false, 'widget hides the debug badge by default');
+$debugWidget = (new AiAssistant\Widget\WidgetRenderer())->render(array(
+    'assistant_name' => 'AI-ассистент',
+    'endpoint' => '/action.php',
+    'assets_url' => '/assets/components/aiassistant/',
+    'debug' => true,
+));
+test_assert(strpos($debugWidget, 'is-debug') !== false, 'debug widget is marked');
+test_assert(strpos($debugWidget, 'fw-assistant-debug') !== false, 'debug widget shows the badge');
+test_assert(isset($model['debug']['candidates']) && count($model['debug']['candidates']) > 0, 'model trace lists candidates');
+test_assert(isset($model['debug']['prompt'][0]['content']), 'model trace keeps the prompt');
+test_assert(strpos(json_encode($model['debug'], JSON_UNESCAPED_UNICODE), '11391.50') === false, 'trace hides the red tumbler');
+test_assert(strpos($model['debug']['criteria']['color'], 'синий') !== false, 'trace keeps the color');
+
+require __DIR__ . '/ModxStub.php';
+require dirname(__DIR__) . '/core/components/aiassistant/model/aiassistant/aiassistant.class.php';
+
+$debugRoot = sys_get_temp_dir() . '/aiassistant-debug-test-' . getmypid();
+$debugModx = new AiAssistantTestModx(array(
+    'core_path' => $debugRoot . '/',
+    'assets_url' => '/assets/',
+    'aiassistant.core_path' => dirname(__DIR__) . '/core/components/aiassistant/',
+    'aiassistant.debug' => '1',
+    'aiassistant.enabled' => '1',
+    'aiassistant.provider' => 'demo',
+    'aiassistant.catalog_source' => 'feed',
+    'aiassistant.feed_url' => 'https://catalog.example/products.json',
+    'aiassistant.feed_format' => 'json',
+    'aiassistant.feed_cache_ttl' => '3600',
+    'aiassistant.api_key' => 'sk-super-secret-value',
+    'aiassistant.feed_basic_pass' => 'feed-password-value',
+    'aiassistant.currency' => '₽',
+    'aiassistant.fallback' => '1',
+    'aiassistant.rules_chunk' => '',
+), false);
+$debugAssistant = new AiAssistant($debugModx, array('endpoint' => '/debug-action.php'));
+$signatureMethod = new ReflectionMethod($debugAssistant, 'catalogSignature');
+$signatureMethod->setAccessible(true);
+$debugSignature = md5((string) json_encode($signatureMethod->invoke($debugAssistant)));
+if (!is_dir($debugRoot . '/cache/aiassistant') && !mkdir($debugRoot . '/cache/aiassistant', 0700, true)) {
+    fwrite(STDERR, "Cannot create debug cache\n");
+    exit(1);
+}
+file_put_contents($debugRoot . '/cache/aiassistant/catalog.json', json_encode(array(
+    'signature' => $debugSignature,
+    'fetched_at' => time(),
+    'products' => $catalog,
+), JSON_UNESCAPED_UNICODE));
+test_same($debugAssistant->getWidgetHtml(), '', 'debug hides the widget from visitors');
+$denied = $debugAssistant->handleApi(array(
+    'action' => 'message',
+    'conversation_id' => 'debugconversation01',
+    'message' => 'секретный запрос посетителя sk-super-secret-value',
+));
+test_same($denied['status'], 403, 'debug rejects a visitor request');
+test_assert(strpos($denied['body']['error'], 'администратор') !== false, 'debug denial explains the lock');
+$deniedLog = (string) file_get_contents($debugRoot . '/cache/aiassistant/debug.log');
+test_assert(strpos($deniedLog, '"event":"denied"') !== false, 'debug log records a denied request');
+test_assert(strpos($deniedLog, 'секретный запрос') === false, 'denied request body is not stored');
+test_assert(strpos($deniedLog, 'sk-super-secret-value') === false, 'denied log has no api key');
+
+$debugModx->user = new AiAssistantTestUser(true);
+$adminHtml = $debugAssistant->getWidgetHtml();
+test_assert(strpos($adminHtml, 'id="fwAssistant"') !== false, 'debug shows the widget to a manager');
+test_assert(strpos($adminHtml, 'is-debug') !== false, 'manager widget is marked as debug');
+test_assert(strpos($adminHtml, 'data-endpoint="/debug-action.php"') !== false, 'widget endpoint can be overridden');
+$answered = $debugAssistant->handleApi(array(
+    'action' => 'message',
+    'conversation_id' => 'debugconversation01',
+    'message' => 'Нужен приветственный пак для программистов в синем цвете, бюджет до 1500 рублей за сет, тираж 50 штук',
+    'page_url' => 'https://shop.example/catalog',
+));
+test_same($answered['status'], 200, 'manager request succeeds in debug mode');
+test_assert(!isset($answered['body']['debug']), 'api response hides the debug trace');
+test_assert(strpos($answered['body']['message'], '7212.40') !== false, 'manager still receives the cable');
+$adminLog = (string) file_get_contents($debugRoot . '/cache/aiassistant/debug.log');
+test_assert(strpos($adminLog, '"event":"message"') !== false, 'debug log records the message');
+test_assert(strpos($adminLog, '7212.40') !== false, 'debug log records the chosen article');
+test_assert(strpos($adminLog, '11391.40') !== false, 'debug log records the tumbler');
+test_assert(strpos($adminLog, 'синий') !== false, 'debug log records the color criterion');
+test_assert(strpos($adminLog, 'sk-super-secret-value') === false, 'debug log redacts the api key');
+test_assert(strpos($adminLog, 'feed-password-value') === false, 'debug log redacts the feed password');
+$infoLogged = false;
+foreach ($debugModx->logs as $row) {
+    if (strpos($row[1], '[aiassistant:debug] message') !== false && strpos($row[1], '7212.40') !== false) {
+        $infoLogged = true;
+    }
+}
+test_assert($infoLogged, 'debug mode also writes a MODX log line');
+
+$publicRoot = sys_get_temp_dir() . '/aiassistant-public-test-' . getmypid();
+$publicModx = new AiAssistantTestModx(array(
+    'core_path' => $publicRoot . '/',
+    'assets_url' => '/assets/',
+    'aiassistant.core_path' => dirname(__DIR__) . '/core/components/aiassistant/',
+    'aiassistant.debug' => '0',
+    'aiassistant.enabled' => '1',
+    'aiassistant.provider' => 'demo',
+    'aiassistant.catalog_source' => 'feed',
+    'aiassistant.feed_url' => '',
+    'aiassistant.rules_chunk' => '',
+), false);
+$publicAssistant = new AiAssistant($publicModx);
+test_assert(strpos($publicAssistant->getWidgetHtml(), 'id="fwAssistant"') !== false, 'debug off shows the widget to visitors');
+test_assert(strpos($publicAssistant->getWidgetHtml(), 'is-debug') === false, 'debug off has no debug badge');
 
 $spec = $engine->specification(array(
     array('article' => '11391.40', 'qty' => 1),

@@ -7,6 +7,8 @@ $_lang['area_aiassistant_commerce'] = 'Корзина и спецификаци�
 
 $_lang['setting_aiassistant.enabled'] = 'Включён';
 $_lang['setting_aiassistant.enabled_desc'] = 'Показывать плавающую кнопку на публичных HTML-страницах.';
+$_lang['setting_aiassistant.debug'] = 'Режим отладки';
+$_lang['setting_aiassistant.debug_desc'] = 'Чат виден и отвечает только пользователю, вошедшему в админку. Подробный журнал пишется в core/cache/aiassistant/debug.log и краткой строкой в журнал MODX. Ключ API в журнал не попадает.';
 $_lang['setting_aiassistant.assistant_name'] = 'Имя в шапке чата';
 $_lang['setting_aiassistant.assistant_name_desc'] = 'Например: AI-ассистент.';
 $_lang['setting_aiassistant.position'] = 'Положение кнопки';

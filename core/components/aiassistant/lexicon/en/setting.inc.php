@@ -7,6 +7,8 @@ $_lang['area_aiassistant_commerce'] = 'Cart and specification';
 
 $_lang['setting_aiassistant.enabled'] = 'Enabled';
 $_lang['setting_aiassistant.enabled_desc'] = 'Show the floating button on public HTML pages.';
+$_lang['setting_aiassistant.debug'] = 'Debug mode';
+$_lang['setting_aiassistant.debug_desc'] = 'The chat is visible and answers only a user logged into the manager. A detailed log is written to core/cache/aiassistant/debug.log and a short line is written to the MODX log. The API key is never written.';
 $_lang['setting_aiassistant.assistant_name'] = 'Chat title';
 $_lang['setting_aiassistant.assistant_name_desc'] = 'Name shown in the widget header.';
 $_lang['setting_aiassistant.position'] = 'Button position';
