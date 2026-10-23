@@ -11,6 +11,10 @@ $tstart = microtime(true);
 set_time_limit(0);
 require_once dirname(__FILE__) . '/build.config.php';
 
+if (defined('MODX_BASE_PATH') && !defined('MODX_BASE_URL')) {
+    define('MODX_BASE_URL', '/');
+}
+
 if (is_file(MODX_CORE_PATH . 'vendor/autoload.php')) {
     require_once MODX_CORE_PATH . 'vendor/autoload.php';
     $modxClass = class_exists('MODX\\Revolution\\modX') ? 'MODX\\Revolution\\modX' : 'modX';
@@ -49,9 +53,12 @@ $builder->registerNamespace('aiassistant', false, true, '{core_path}components/a
 
 $category = $modx->newObject('modCategory');
 $category->set('category', 'AI Assistant');
-$category->addMany(include $sources['data'] . 'transport.snippets.php');
-$category->addMany(include $sources['data'] . 'transport.chunks.php');
-$category->addMany(include $sources['data'] . 'transport.plugins.php');
+$snippets = include $sources['data'] . 'transport.snippets.php';
+$chunks = include $sources['data'] . 'transport.chunks.php';
+$plugins = include $sources['data'] . 'transport.plugins.php';
+$category->addMany($snippets);
+$category->addMany($chunks);
+$category->addMany($plugins);
 
 $attributes = array(
     xPDOTransport::UNIQUE_KEY => 'category',

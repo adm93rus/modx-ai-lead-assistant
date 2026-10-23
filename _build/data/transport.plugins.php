@@ -19,6 +19,7 @@ $event->fromArray(array(
     'priority' => 0,
     'propertyset' => 0,
 ), '', true, true);
-$plugin->addMany(array($event));
+$events = array($event);
+$plugin->addMany($events);
 
 return array($plugin);
